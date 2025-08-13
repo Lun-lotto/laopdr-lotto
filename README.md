@@ -1,1 +1,194 @@
-# laopdr-lotto
+
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>หวยลาวพัฒนา - ลากตำแหน่งได้ + บันทึกภาพ</title>
+  <style>
+    body {
+      font-family: 'Prompt', sans-serif;
+      text-align: center;
+      background-color: #f0f0f0;
+    }
+
+    .card {
+      width: 768px;
+      height: 768px;
+      margin: 20px auto;
+      background-image: url('06e6e544-aa71-457c-9eb0-926ce18bfc75.png');
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      border: 1px solid #ccc;
+    }
+
+    .overlay {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      font-weight: bold;
+      font-size: 36px;
+    }
+
+    .draggable {
+      position: absolute;
+      cursor: move;
+      user-select: none;
+      color: #003366;
+    }
+
+    .date     { font-size: 24px; top: 216px; left: 252px; color: white; }
+    .run      { font-size: 40px; top: 316px; left: 105px; letter-spacing: 15px; }
+    .fan      { font-size: 40px; top: 316px; left: 325px; letter-spacing: 10px; }
+    .line1    { font-size: 40px; top: 422px; left: 112px; letter-spacing: 5px; word-spacing: 30px; }
+    .line2    { font-size: 40px; top: 487px; left: 115px; letter-spacing: 5px; word-spacing: 30px; }
+    .triples  { font-size: 40px; top: 555px; left: 133px; letter-spacing: 5px; word-spacing: 40px; }
+
+    .controls {
+      margin-top: 20px;
+    }
+
+    button, input[type="text"], input[type="file"] {
+      padding: 8px 12px;
+      margin: 5px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="overlay">
+      <div class="draggable date" id="date">28/07/68</div>
+      <div class="draggable run" id="run">0-0</div>
+      <div class="draggable fan" id="fan">00</div>
+      <div class="draggable line1" id="line1">00 00 00</div>
+      <div class="draggable line2" id="line2">00 00 00</div>
+      <div class="draggable triples" id="triples">000 000</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="dateInput" placeholder="ระบุวันที่ เช่น 01/08/68" />
+    <button onclick="changeDate()">📅 เปลี่ยนวันที่</button>
+    <button onclick="generateNumbers()">🔁 สุ่มเลข</button>
+    <button onclick="saveImage()">💾 บันทึกภาพ</button><br>
+    <input type="file" accept="image/*" onchange="setBackground(event)" />
+  </div>
+
+  <!-- บันทึกภาพ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <script>
+    // === Drag Logic ===
+    let dragged = null;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    document.querySelectorAll('.draggable').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        dragged = el;
+        offsetX = e.clientX - el.offsetLeft;
+        offsetY = e.clientY - el.offsetTop;
+      });
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (dragged) {
+        dragged.style.left = (e.clientX - offsetX) + 'px';
+        dragged.style.top = (e.clientY - offsetY) + 'px';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      dragged = null;
+    });
+
+    // === Generator ===
+    function getRandomDigit() {
+      return Math.floor(Math.random() * 10).toString();
+    }
+
+    function generateFan(run1, run2) {
+      return run1 + run2;
+    }
+
+    function generateTwoDigit(run, exclude, fan) {
+      let pair;
+      do {
+        const d = getRandomDigit();
+        pair = run + d;
+      } while (exclude.has(pair) || pair === fan);
+      return pair;
+    }
+
+    function generateThreeDigit(run1, run2) {
+      let num;
+      do {
+        num = getRandomDigit() + getRandomDigit() + getRandomDigit();
+      } while (!(num.includes(run1) || num.includes(run2)));
+      return num;
+    }
+
+    function generateNumbers() {
+      const run1 = getRandomDigit();
+      let run2;
+      do {
+        run2 = getRandomDigit();
+      } while (run2 === run1);
+      const fan = generateFan(run1, run2);
+      const exclude = new Set([fan]);
+
+      const pairs = [];
+      while (pairs.length < 3) {
+        const p = generateTwoDigit(run1, exclude, fan);
+        pairs.push(p);
+        exclude.add(p);
+      }
+      while (pairs.length < 6) {
+        const p = generateTwoDigit(run2, exclude, fan);
+        pairs.push(p);
+        exclude.add(p);
+      }
+
+      const triple1 = generateThreeDigit(run1, run2);
+      const triple2 = generateThreeDigit(run1, run2);
+
+      document.getElementById('run').innerText = `${run1}-${run2}`;
+      document.getElementById('fan').innerText = fan;
+      document.getElementById('line1').innerText = pairs.slice(0, 3).join(' ');
+      document.getElementById('line2').innerText = pairs.slice(3, 6).join(' ');
+      document.getElementById('triples').innerText = `${triple1} ${triple2}`;
+    }
+
+    function changeDate() {
+      const dateInput = document.getElementById('dateInput').value.trim();
+      if (dateInput) {
+        document.getElementById('date').innerText = dateInput;
+      }
+    }
+
+    function setBackground(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('card').style.backgroundImage = `url(${e.target.result})`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveImage() {
+      html2canvas(document.getElementById("card"), { scale: 3 }).then(canvas => {
+        const link = document.createElement("a");
+        link.download = "หวยลาวพัฒนา.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      });
+    }
+
+    generateNumbers();
+  </script>
+</body>
+</html>
